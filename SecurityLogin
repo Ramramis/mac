@@ -1,0 +1,68 @@
+package user.security.config;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+
+@Configuration
+public class SecurityConfig {
+	
+	@Autowired
+	private BoardUserDetailsService boardUserDetailsService;
+	
+	@Bean
+	SecurityFilterChain filterChain(HttpSecurity security) throws Exception {
+	
+		//지금 쓰고 있는 경로는 controller 의 경로와 일치해야 한다.
+		
+		security.csrf(AbstractHttpConfigurer::disable)
+		.authorizeHttpRequests(auth -> {                                                                      //인가를 내주겠다 지정하는 부분
+			auth.requestMatchers(new AntPathRequestMatcher("/member/**"),
+			new AntPathRequestMatcher("/js/**")).authenticated()                                    //로그인 인증하면 OK라는 부분
+			.requestMatchers(new AntPathRequestMatcher("/admin/**")).hasRole("ADMIN")
+			.requestMatchers(new AntPathRequestMatcher("/manager/**")).hasAnyRole("MANAGER","ADMIN")
+			.anyRequest().permitAll();
+		}); 
+		
+		security.formLogin((formLogin)->formLogin.loginPage("/login")
+		.defaultSuccessUrl("/loginSuccess",true))
+		.logout((logout)->{logout.logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+		.invalidateHttpSession(true).logoutSuccessUrl("/");                                               //로그라웃 성공했으면 /요청으로 간다
+		}).exceptionHandling((Exception)->Exception.accessDeniedPage("/accessDenied")); //인가가 발생 했다면 accessDined 로 이동
+		
+		
+		
+		
+		security.userDetailsService(boardUserDetailsService);
+		
+		
+		return security.build();
+	}
+	
+	@Bean 
+	PasswordEncoder passwordEncoder() {
+		return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+	}
+	
+	
+	
+	
+	/*
+		@Autowired
+		public void authenticate(AuthenticationManagerBuilder auth) throws Exception{
+		auth.inMemoryAuthentication().withUser("manager")
+		.password("{noop}manager123")
+		.roles("MANAGER");
+		
+		auth.inMemoryAuthentication().withUser("admin")
+		.password("{noop}admin123")
+		.roles("ADMIN");
+	}
+	*/
+}
